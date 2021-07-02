@@ -1,0 +1,51 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+using WinFormsApp2.Models;
+
+namespace WinFormsApp2.Service
+{
+    public class ClienteService
+    {
+        public string ConsolidarMovimentacao(Cliente conta)
+        {
+            return ConsolidarMovimentacao(conta, CancellationToken.None);
+        }
+
+        public string ConsolidarMovimentacao(Cliente conta, CancellationToken ct)
+        {
+            var soma = 0m;
+
+            foreach (var movimento in conta.Transactions)
+            {
+                ct.ThrowIfCancellationRequested();
+                soma += movimento.Valor * FatorDeMultiplicacao(movimento.Data);
+            }
+
+            ct.ThrowIfCancellationRequested();
+            AtualizarInvestimentos(conta);
+            return $"Cliente {conta.Nome} tem saldo atualizado de R${soma.ToString("#00.00")}";
+        }
+
+        private static decimal FatorDeMultiplicacao(DateTime dataMovimento)
+        {
+            const decimal CTE_FATOR = 1.0000000005m;
+
+            var diasCorridosDesdeDataMovimento = (dataMovimento - new DateTime(1900, 1, 1)).Days;
+            var resultado = 1m;
+
+            for (int i = 0; i < diasCorridosDesdeDataMovimento * 2; i++)
+                resultado = resultado * CTE_FATOR;
+
+            return resultado;
+        }
+        private static void AtualizarInvestimentos(Cliente cliente)
+        {
+            const decimal CTE_BONIFICACAO_MOV = 1m / (10m * 5m);
+            cliente.Investimento *= CTE_BONIFICACAO_MOV;
+        }
+    }
+}
