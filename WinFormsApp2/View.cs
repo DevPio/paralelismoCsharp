@@ -1,10 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Data;
-using System.Drawing;
 using System.Linq;
-using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using WinFormsApp2.Models;
@@ -15,6 +13,19 @@ namespace WinFormsApp2
 {
     public partial class View : Form
     {
+        public class Progress<T> : IProgress<T>
+        {
+            public Progress()
+            {
+
+            }
+            public void Report(T value)
+            {
+
+                
+            }
+        }
+        int progressCount = 0;
         public View()
         {
             InitializeComponent();
@@ -25,28 +36,81 @@ namespace WinFormsApp2
 
         }
 
-        private void button1_Click(object sender, EventArgs e)
+        private async void button1_Click(object sender, EventArgs e)
         {
+            this.CleanView();
+             progressCount = 10;
+            progressBar1.Value = 0;
             List<Cliente> repos = new RepoContas().contasTransactions();
 
-            List<string> resultado = new List<string>();
+            button1.Enabled = false;
+            progressBar1.Value = progressCount;
 
-            foreach (var conta in repos)
-            {
-              var resultadoMomento = new ClienteService().ConsolidarMovimentacao(conta);
+            var resultadoSync = await ConsolidaTarefas(repos);
 
-              
+            progressBar1.Value = progressCount + 20;
 
-                listBox1.Items.Add(resultadoMomento);
 
-            }
+
+            button1.Enabled = false;
+
+            foreach (var item in resultadoSync)
+                {
+                    ListItem.Items.Add(item);
+
+                
+
+                }
 
             
+           
+            button1.Enabled = true;
+            progressBar1.Value = 100;
+
+
+
         }
 
-        private void label1_Click(object sender, EventArgs e)
+        public void CleanView()
         {
+            ListItem.Items.Clear();
+        }
+
+        private async Task<string[]> ConsolidaTarefas(List<Cliente> clientes,IProgress<string> progress )
+        {
+            List<string> resultado = new List<string>();
+            var context = TaskScheduler.FromCurrentSynchronizationContext();
+            
+            var contasTarefas = clientes.Select(repo =>
+           
+            Task.Factory.StartNew(() =>
+           {
+
+
+
+             var c =   new ClienteService().ConsolidarMovimentacao(repo);
+               progressCount += 10;
+               progress.Report(progressCount.ToString());
+               Task.Factory.StartNew(
+                   () => progressBar1.Value = progressCount,
+                   CancellationToken.None,
+                   TaskCreationOptions.None,
+                   context
+               );
+
+
+               return c;
+
+           })
+            ).ToArray();
+
+
+            var r = await Task.WhenAll(contasTarefas);
+
+            return r;
 
         }
+
+     
     }
 }
